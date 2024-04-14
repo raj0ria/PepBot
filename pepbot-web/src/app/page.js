@@ -4,8 +4,11 @@ import { useClient } from 'next/client';
 import { useState } from "react";
 import Head from "next/head";
 import ReactMarkdown from "react-markdown";
+import { createParser } from "eventsource-parser";
 
 const SYSTEM_MESSAGE = "You are PepBot, An versatile and helpful AI created by pepcus using state of the art ML models and API's";
+
+
 
 export default function Home() {
   const [apiKey, setApiKey] = useState('');
@@ -20,8 +23,9 @@ export default function Home() {
   
   const API_URL = "https://api.openai.com/v1/chat/completions"
 
-  const sendRequest = async () => {
+  const isClient = useClient(); 
 
+  const sendRequest = async () => {
     const updatedMessages = [
       ...messages,
       {
@@ -43,20 +47,52 @@ export default function Home() {
         body: JSON.stringify({
           model: "gpt-3.5-turbo",
           messages: updatedMessages,
+          stream: true,
         }),
       });
 
-      const resJson = await response.json();
-      console.log(resJson);
+      const reader = response.body.getReader();
 
-      const updatedMessages2 = [...updatedMessages, resJson.choices[0].message];
-      setMessages(updatedMessages2);
+      let newMessage = "";
+      const parser = createParser((event) => {
+        if (event.type === "event") {
+          const data = event.data;
+          if (data === "[DONE]") {
+            return;
+          }
+          const json = JSON.parse(event.data);
+          const content = json.choices[0].delta.content;
+
+          if (!content) {
+            return;
+          }
+
+          newMessage += content;
+
+          const updatedMessages2 = [
+            ...updatedMessages,
+            { role: "assistant", content: newMessage },
+          ];
+
+          setMessages(updatedMessages2);
+        } else {
+          return "";
+        }
+      });
+
+      // eslint-disable-next-line
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = new TextDecoder().decode(value);
+        parser.feed(text);
+      }
     } catch (error) {
       console.error("error");
       window.alert("Error:" + error.message);
     }
   };
-
+  
   return (
     <>
       <Head>
