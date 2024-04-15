@@ -1,4 +1,4 @@
-# PepBot
+# Pepcus-Bot
 The AI That Does Everything
 This repository contains the source code for PepBot, a general purpose, programmable & extensible AI, using state of the art machine learning models and APIs. Follow the development of Pepbot here: 'url of the notion doc'
 
